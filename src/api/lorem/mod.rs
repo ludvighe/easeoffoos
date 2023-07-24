@@ -34,9 +34,9 @@ async fn get_lorem(
     let n_paragraphs = match params.p {
         Some(n) => match n.parse::<usize>() {
             Ok(val) => val,
-            Err(_) => 0,
+            Err(_) => usize::MIN,
         },
-        None => 0,
+        None => usize::MIN,
     }
     .min(n_words);
 
@@ -46,49 +46,18 @@ async fn get_lorem(
     };
 
     // Get Lorem words
-    let lorem_words = data::get_words();
-
-    let lorem_len = lorem_words.len();
-    let lorem_max_i = lorem_len - 1;
-
-    let mut result: Vec<String> = Vec::new();
-    for i in 0..n_words {
-        result.push(lorem_words[i % lorem_max_i].clone());
-    }
-
-    let mut result_str = result.join(" ");
+    let lorem_words = data::get_n_words(n_words);
+    let mut result_str = lorem_words.join(" ");
 
     // Chunk paragraphs if requested
     if n_paragraphs != 0 {
-        let paragraph_len = result.len() / n_paragraphs;
-        let mut result_p: Vec<String> = Vec::new();
+        let sep = match use_html {
+            true => "</p><p>",
+            false => "\n\n",
+        };
 
-        let paragraphs: Vec<&[String]> = result.chunks(paragraph_len).collect();
-
-        for i in 0..n_paragraphs {
-            let mut res = paragraphs[i].join(" ");
-            let first_char = res.get(0..1).unwrap().to_uppercase().to_string(); // TODO: Handle unwrap
-            res.replace_range(0..1, &first_char);
-
-            let last_char = res
-                .get(res.len() - 1..)
-                .unwrap()
-                .to_string()
-                .replace(",", "");
-
-            res.replace_range(res.len() - 1.., &last_char);
-            if last_char != "?" {
-                res.push('.');
-            }
-
-            result_p.push(res);
-        }
-
-        if use_html {
-            result_str = result_p.join("</p><p>");
-        } else {
-            result_str = result_p.join("\n\n");
-        }
+        let paragraphs = data::words_to_n_paragraphs(lorem_words, n_paragraphs);
+        result_str = paragraphs.join(sep);
     }
 
     if use_html {
